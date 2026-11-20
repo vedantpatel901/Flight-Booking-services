@@ -27,6 +27,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.ENUM,
       values: [BookingStatus.Booked, BookingStatus.Cancelled, BookingStatus.Pending],
       defaultValue: BookingStatus.Pending,
+      allowNull: false
     },
     totalCost: {
       type: DataTypes.INTEGER,
