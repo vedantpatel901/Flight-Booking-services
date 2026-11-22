@@ -22,19 +22,6 @@ class CrudRepository{
         return respone;
     }
 
-     async getdatabypk(data){
-        const respone = await this.model.findByPk(data );
-        return respone;
-    }
-
-    async update(id, data){
-        const respone = await this.model.update(data, 
-            { where: 
-                { id }          
-            });
-        return respone;
-    }
-
     async getAll(){
         const response = await this.model.findAll();
         return response;

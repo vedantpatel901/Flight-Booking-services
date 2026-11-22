@@ -26,6 +26,32 @@ async function createBookings(req,res) {
     }
 }
 
+async function makepayment(req,res) {
+    try {
+        console.log("req.body", req.body);
+        const flightBooking = await BookingService.makePayment({
+            userId: req.body.userId,
+            totalCost: req.body.totalCost,
+            bookingId: req.body.bookingId,
+        });
+        const response = AppSuccess('booked is completed successfully', flightBooking);
+        return res
+            .status(StatusCodes.OK)
+            .json(response);
+    } catch (error) {
+        console.log("error in booking controller", error);
+        const statusCode = error?.statusCode || StatusCodes.INTERNAL_SERVER_ERROR;
+        const response = AppErrors(error.message, {
+            explanation: error.explanation,
+            statusCode,
+        }); 
+        return res
+            .status(statusCode)
+            .json(response);
+    }
+}
+
 module.exports = {
     createBookings,
+    makepayment
 }

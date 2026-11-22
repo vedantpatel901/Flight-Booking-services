@@ -3,6 +3,8 @@ const db = require('../models');
 const AppError = require('../utils/errors/app-error');
 const { StatusCodes } = require('http-status-codes');
 const BookingRepository = require('../respositories/booking-repository');
+const { BookingStatus } = require('../utils/common/enums');
+
 
 const bookingRepository = new BookingRepository();
 
@@ -57,7 +59,59 @@ async function createBooking(data){
       );
    }
 }
- 
+
+async function makePayment(data){
+  const transaction = await db.sequelize.transaction();
+  let committed = false;
+
+  try {
+    const bookingDetails = await bookingRepository.getdatabypk(data.bookingId, transaction);
+
+    if (bookingDetails.status === BookingStatus.Cancelled) {
+      throw new AppError("The booking is already cancelled", StatusCodes.BAD_REQUEST);
+    }
+
+    const bookingTime = new Date(bookingDetails.createdAt);
+    const currentTime = new Date();
+
+    if (currentTime - bookingTime > 300000) {
+      await bookingRepository.update(
+        data.bookingId,
+        { status: BookingStatus.Cancelled },
+        transaction
+      );
+      await transaction.commit();
+      committed = true;
+      throw new AppError("The booking is expired", StatusCodes.BAD_REQUEST);
+    }
+
+    if (Number(bookingDetails.totalCost) !== Number(data.totalCost)) {
+      throw new AppError("Total cost is not correct", StatusCodes.BAD_REQUEST);
+    }
+    if (bookingDetails.status === BookingStatus.Booked) {
+      throw new AppError("The booking is already booked", StatusCodes.BAD_REQUEST);
+    }
+    if (Number(bookingDetails.userId) !== Number(data.userId)) {
+      throw new AppError("User is not allowed to make payment for this booking", StatusCodes.UNAUTHORIZED);
+    }
+
+    await bookingRepository.update(
+      data.bookingId,
+      { status: BookingStatus.Booked },
+      transaction
+    );
+
+    await transaction.commit();
+    committed = true;
+    return await bookingRepository.getdatabypk(data.bookingId);
+  } catch (error) {
+    if (!committed) {
+      await transaction.rollback();
+    }
+    throw error;
+  }
+}
 module.exports = {
-    createBooking
+    createBooking,
+    makePayment
 }
