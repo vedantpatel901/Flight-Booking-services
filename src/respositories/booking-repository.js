@@ -1,4 +1,4 @@
-const {StatusCodes} = require('../utils/common/status-codes');
+
 const CrudRepository = require('./crud-repository');
 const {Booking} = require('../models');
 
