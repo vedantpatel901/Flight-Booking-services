@@ -7,13 +7,14 @@ async function createBookings(req,res) {
         console.log("req.body", req.body);
         const flightBooking = await BookingService.createBooking({
             flightId: req.body.flightId,
+            userId: req.body.userId,
+            noOfSeats: req.body.noOfSeats,
         });
         const response = AppSuccess('Flight books successfully', flightBooking);
         return res
             .status(StatusCodes.OK)
             .json(response);
     } catch (error) {
-        console.log("error in controller", error);
         const statusCode = error?.statusCode || StatusCodes.INTERNAL_SERVER_ERROR;
         const response = AppErrors(error.message, {
             explanation: error.explanation,

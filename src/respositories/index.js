@@ -1,3 +1,3 @@
-module.exorts = {
+module.exports = {
     BookingRepository: require('./booking-repository')
 }
