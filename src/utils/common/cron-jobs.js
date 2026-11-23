@@ -4,7 +4,7 @@ const { BookingService } = require('../../services');
 
 function scheduledJob(){
 
-   const job = new CronJob('*/10 * * * *', async () => {
+   const job = new CronJob(' */15 * * * *', async () => {
       const response = await BookingService.cancelOldBookings();
       console.log(`Cancelled ${response.length} expired booking(s)`);
    });
