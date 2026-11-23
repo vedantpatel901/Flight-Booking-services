@@ -8,10 +8,10 @@ const { BookingStatus } = require('../utils/common/enums');
 
 const bookingRepository = new BookingRepository();
 
-async function createBooking(data){
-   let transaction;
+async function createBooking(data) {
+  let transaction;
 
-   try {
+  try {
     const noOfSeats = Number(data.noOfSeats);
     transaction = await db.sequelize.transaction();
 
@@ -30,37 +30,39 @@ async function createBooking(data){
         StatusCodes.BAD_REQUEST
       );
     }
+
+    await axios.patch(
+      `http://localhost:3000/api/v1/flights/${data.flightId}/seats`,
+      {
+        seats: noOfSeats,
+        dec: true
+      }
+    );
+
     const totalbookingcost = data.noOfSeats * flightData.price;
     console.log("totalbookingcost", totalbookingcost);
     const bookingPayload = {
       ...data, totalCost: totalbookingcost
     }
     const bookingFlight = await bookingRepository.createBooking(bookingPayload, transaction);
-    const response = await axios.patch(
-      `http://localhost:3000/api/v1/flights/${data.flightId}/seats`,
-      { seats: data.noOfSeats },
-    );
-    console.log("response from flight service", response.data);
-
-
     await transaction.commit();
     return bookingFlight;
-   } catch (error) {
+  } catch (error) {
     console.log("error in booking service", error);
-      if (transaction) {
-        await transaction.rollback();
-      }
-      if (error instanceof AppError) {
-        throw error;
-      }
-      throw new AppError(
-        "something went wrong in the booking service",
-        StatusCodes.INTERNAL_SERVER_ERROR
-      );
-   }
+    if (transaction) {
+      await transaction.rollback();
+    }
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError(
+      "something went wrong in the booking service",
+      StatusCodes.INTERNAL_SERVER_ERROR
+    );
+  }
 }
 
-async function makePayment(data){
+async function makePayment(data) {
   const transaction = await db.sequelize.transaction();
   let committed = false;
 
@@ -75,6 +77,13 @@ async function makePayment(data){
     const currentTime = new Date();
 
     if (currentTime - bookingTime > 300000) {
+      await axios.patch(
+        `http://localhost:3000/api/v1/flights/${bookingDetails.flightId}/seats`,
+        {
+          seats: bookingDetails.noOfSeats,
+          dec: false
+        }
+      );
       await bookingRepository.update(
         data.bookingId,
         { status: BookingStatus.Cancelled },
@@ -111,7 +120,50 @@ async function makePayment(data){
     throw error;
   }
 }
+
+async function cancelBooking(bookingId) {
+  const transaction = await db.sequelize.transaction();
+  try {
+    const bookingDetails = await bookingRepository.getdatabypk(bookingId, transaction); // this is a function which will get the booking details by primary key
+    if (bookingDetails.status === BookingStatus.Cancelled) {
+      await transaction.commit();
+      return bookingDetails;
+    }
+    await axios.patch(
+      `http://localhost:3000/api/v1/flights/${bookingDetails.flightId}/seats`,
+      {
+        seats: bookingDetails.noOfSeats,
+        dec: false
+      },
+    );
+    await bookingRepository.update(bookingId, { status: BookingStatus.Cancelled }, transaction);
+    await transaction.commit();
+    return await bookingRepository.getdatabypk(bookingId);
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  }
+}
+
+async function cancelOldBookings() {
+  try {
+    const currentTime = new Date(Date.now() - 300000); // 5 minutes ago
+    const expiredBookings = await bookingRepository.cancelOldBookings(currentTime);
+    const cancelledBookings = [];
+
+    for (const booking of expiredBookings) {
+      cancelledBookings.push(await cancelBooking(booking.id));
+    }
+
+    return cancelledBookings;
+  } catch (error) {
+    console.error("error cancelling old bookings", error);
+    throw error;
+  }
+}
 module.exports = {
-    createBooking,
-    makePayment
+  createBooking,
+  makePayment,
+  cancelBooking,
+  cancelOldBookings
 }
