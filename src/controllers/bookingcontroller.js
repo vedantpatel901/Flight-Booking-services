@@ -1,6 +1,7 @@
 const {BookingService} = require('../services');
 const { AppErrors, AppSuccess } = require('../utils/common');
 const { StatusCodes } = require('http-status-codes');
+const inMemoryDb = {}
 
 async function createBookings(req,res) {
     try {
@@ -28,12 +29,23 @@ async function createBookings(req,res) {
 
 async function makepayment(req,res) {
     try {
+        const idempotencyKey = req.headers['x-idempotency-key'];
+        if (!idempotencyKey || inMemoryDb[idempotencyKey]) {
+            return res
+            .status(StatusCodes.BAD_REQUEST)
+            .json(AppErrors('cannot retry the payment on successful payment', {
+                explanation: 'cannot retry the payment on successful payment',
+                statusCode: StatusCodes.BAD_REQUEST,
+            }));
+        }
+
         console.log("req.body", req.body);
         const flightBooking = await BookingService.makePayment({
             userId: req.body.userId,
             totalCost: req.body.totalCost,
             bookingId: req.body.bookingId,
         });
+        inMemoryDb[idempotencyKey] = idempotencyKey;
         const response = AppSuccess('booked is completed successfully', flightBooking);
         return res
             .status(StatusCodes.OK)

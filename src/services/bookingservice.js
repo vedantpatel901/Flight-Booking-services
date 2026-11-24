@@ -101,6 +101,8 @@ async function makePayment(data) {
       throw new AppError("The booking is already booked", StatusCodes.BAD_REQUEST);
     }
     if (Number(bookingDetails.userId) !== Number(data.userId)) {
+      console.log("bookingDetails.userId", bookingDetails.userId);
+      console.log("data.userId", data.userId);
       throw new AppError("User is not allowed to make payment for this booking", StatusCodes.UNAUTHORIZED);
     }
 
